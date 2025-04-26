@@ -37,6 +37,12 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+### 4. If streamlit does not works directly, use below (optional)
+
+```bash
+python3 -m streamlit run app.py
+```
+
 ---
 
 ## 📦 Requirements
