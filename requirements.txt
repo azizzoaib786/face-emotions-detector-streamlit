@@ -1,6 +1,6 @@
 streamlit
 streamlit-webrtc
-opencv-python
-insightface
+opencv-python-headless
+deepface
 Pillow
 numpy
