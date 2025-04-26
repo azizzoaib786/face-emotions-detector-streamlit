@@ -1,52 +1,62 @@
 import streamlit as st
-from PIL import Image
-import numpy as np
-from deepface import DeepFace
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase, WebRtcMode
+import av
 import cv2
-import os
+import numpy as np
+import insightface
 
-# Optional: Suppress PyAV warning if needed
-os.environ["PYAV_LOGLEVEL"] = "error"
+# Load InsightFace model
+@st.cache_resource
+def load_model():
+    model = insightface.app.FaceAnalysis(name="buffalo_l")
+    model.prepare(ctx_id=0)  # CPU mode
+    return model
 
-st.set_page_config(page_title="😊 Face Emotion Detector", layout="centered")
-st.title("😊 Face Emotion Detector")
+face_model = load_model()
 
-# Select mode
-option = st.radio("Choose Input Mode:", ["Upload Image", "Take a Photo"])
+# Emotion emoji map
+emotion_emojis = {
+    'neutral': '😐',
+    'happy': '😄',
+    'sad': '😢',
+    'surprise': '😲',
+    'fear': '😨',
+    'angry': '😠',
+    'disgust': '🤢',
+    'unknown': '❓'
+}
 
-# Store captured image
-if "captured_image" not in st.session_state:
-    st.session_state.captured_image = None
+class EmotionDetector(VideoTransformerBase):
+    def transform(self, frame: av.VideoFrame) -> np.ndarray:
+        img = frame.to_ndarray(format="bgr24")
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        faces = face_model.get(rgb)
 
-# Upload image
-if option == "Upload Image":
-    uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
-    if uploaded_file is not None:
-        image = Image.open(uploaded_file).convert("RGB")
-        image_np = np.array(image)
+        for face in faces:
+            box = face.bbox.astype(int)
+            x1, y1, x2, y2 = box
+            emotion = face.emotion
 
-        st.image(image, caption="Uploaded Image", use_column_width=True)
-        st.write("Analyzing emotions...")
+            # Draw rectangle
+            cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-        try:
-            result = DeepFace.analyze(image_np, actions=['emotion'], enforce_detection=False)
-            st.success(f"Detected emotion: {result[0]['dominant_emotion'].capitalize()}")
-        except Exception as e:
-            st.error(f"Error detecting emotion: {str(e)}")
+            # Label emotion + emoji
+            label = f"{emotion.capitalize()} {emotion_emojis.get(emotion, '')}"
+            cv2.putText(img, label, (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
 
-# Capture from webcam
-elif option == "Take a Photo":
-    picture = st.camera_input("Take a picture")
+        return img
 
-    if picture is not None:
-        image = Image.open(picture).convert("RGB")
-        image_np = np.array(image)
+# Streamlit App
+st.set_page_config(page_title="😊 Real-time Face Emotion Detector", layout="centered")
+st.title("😊 Real-time Face Emotion Detection (InsightFace)")
 
-        st.image(image, caption="Captured Image", use_column_width=True)
-        st.write("Analyzing emotions...")
+webrtc_streamer(
+    key="emotion",
+    mode=WebRtcMode.SENDRECV,
+    video_transformer_factory=EmotionDetector,
+    media_stream_constraints={"video": True, "audio": False},
+    async_processing=True,
+)
 
-        try:
-            result = DeepFace.analyze(image_np, actions=['emotion'], enforce_detection=False)
-            st.success(f"Detected emotion: {result[0]['dominant_emotion'].capitalize()}")
-        except Exception as e:
-            st.error(f"Error detecting emotion: {str(e)}")
+st.info("Emotions detected real-time using InsightFace models 🚀")
