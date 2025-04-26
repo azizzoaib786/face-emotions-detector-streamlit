@@ -2,7 +2,7 @@ streamlit
 streamlit-webrtc
 opencv-python
 deepface
-tensorflow
-keras
+tensorflow==2.10
+keras==2.10
 Pillow
 numpy
