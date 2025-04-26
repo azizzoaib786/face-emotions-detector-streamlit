@@ -4,3 +4,4 @@ opencv-python-headless
 deepface
 Pillow
 numpy
+protobuf==3.20.*
